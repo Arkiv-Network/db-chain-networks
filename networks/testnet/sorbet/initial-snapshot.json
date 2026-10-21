@@ -1,0 +1,68 @@
+{
+  "kind": "genesis",
+  "network": "sorbet",
+  "chainId": 7706815,
+  "genesisTime": 1792086471,
+  "genesis": {
+    "stateRoot": "0x330f8d543bcae6be64bc820e16b6061052020d03cdd843b2d880d54c7a5dbe54",
+    "genesisSha256": "6308b406b093fb27b43dd750a03444de9305d9b5e9f086ca5db404e0c01e63a4"
+  },
+  "private": false,
+  "run": "genesis-6308b406b093fb27b43dd750a03444de9305d9b5e9f086ca5db404e0c01e63a4",
+  "head": {
+    "slot": 0,
+    "block": 0
+  },
+  "images": {
+    "reth": "ghcr.io/arkiv-network/arkiv-reth@sha256:b6c5bd422d0f1223e928e7974317a6368847f3eb4480991df2a8e5df3f9b4b62"
+  },
+  "compatibleRethVersions": [
+    "ghcr.io/arkiv-network/arkiv-reth:v0.1.0-prefill.1@sha256:b6c5bd422d0f1223e928e7974317a6368847f3eb4480991df2a8e5df3f9b4b62"
+  ],
+  "runtimeCompatibility": {
+    "schemaVersion": 1,
+    "seedJobProtocolVersions": [
+      1
+    ],
+    "reth": {
+      "image": "ghcr.io/arkiv-network/arkiv-reth@sha256:b6c5bd422d0f1223e928e7974317a6368847f3eb4480991df2a8e5df3f9b4b62",
+      "binarySha256": "ac56e77ab219986b00c29083725d4feee12265052f13f455e3f338efe7086672",
+      "version": "Reth Version: 2.5.0-dev\nCommit SHA: 189c0df32617afc488e0f091dbface1bd72cceb4\nBuild Timestamp: 2026-10-02T10:28:27.651730464Z\nBuild Features: asm_keccak,jemalloc\nBuild Profile: release"
+    },
+    "tools": {
+      "arkiv-cli": {
+        "sha256": "23c829328afe69d3be0067ca03b817b5bfac90a636b42f269fe4c3b49f54677d",
+        "sourceRepository": "Arkiv-Network/arkiv",
+        "sourceCommit": "57bde545942afd1f670c83d9b4a7925520ebeb68",
+        "sourceTag": "v0.1.0-prefill.1",
+        "patch": "patches/sourcify-input.patch",
+        "patchSha256": "3a7c5251d962f5adc9a5b94e00880585ac97ce5b4189d05c63ae2948d2a71379",
+        "rustToolchain": "1.97.1",
+        "rustcVersion": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "profile": "release"
+      },
+      "eth-genesis-state-generator": {
+        "sha256": "173ce1c6bcd08945b9ebad31de051267b51e600efb9ac62186ebf60370ba963f",
+        "sourceRepository": "ethpandaops/eth-beacon-genesis",
+        "sourceCommit": "9bbbf55fa9603b4c2e656fe7c441a340ea61f6d6",
+        "patch": "patches/eth-beacon-genesis-statehash.patch",
+        "patchSha256": "8f81f0812114aea97a7090e42eea126e7c1949a50c4434832106742ea421a4d5",
+        "goToolchain": "1.26.5",
+        "cgoEnabled": true
+      }
+    },
+    "compatibleRethImages": [
+      "ghcr.io/arkiv-network/arkiv-reth@sha256:b6c5bd422d0f1223e928e7974317a6368847f3eb4480991df2a8e5df3f9b4b62"
+    ]
+  },
+  "layers": {
+    "el": {
+      "key": "sorbet/genesis-6308b406b093fb27b43dd750a03444de9305d9b5e9f086ca5db404e0c01e63a4/el-f13131668fd1f9dae13fc1c0a585d24546aec585cbf686de249b6d2ae68f2ab7.tar.gz",
+      "rawBytes": 140546979858,
+      "bytes": 90855928059,
+      "sha256": "f13131668fd1f9dae13fc1c0a585d24546aec585cbf686de249b6d2ae68f2ab7",
+      "compression": "gzip"
+    }
+  },
+  "snapshotBaseUrl": "https://testnet.snapshots.arkiv.network"
+}

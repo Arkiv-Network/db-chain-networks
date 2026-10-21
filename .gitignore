@@ -1,0 +1,2 @@
+# the JWT a follower node's two clients share is a local secret — it never belongs in a clone
+jwtsecret

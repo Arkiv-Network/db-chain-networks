@@ -1,0 +1,65 @@
+name: registry-ci
+on:
+  push: { branches: [ main ] }
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    # This repository holds ONLY the public genesis bundles the deployment tooling produces, so the
+    # secret threats are specific and known: the mnemonic, validator keystores, the JWT, and node
+    # private keys. A targeted validator catches all of them precisely — a generic secret scanner
+    # (gitleaks) both MISSES the word-based mnemonic and false-positives on public genesis hex, so it
+    # is not used.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: validate layout, checksums, and no-secrets
+        run: |
+          set -euo pipefail
+          rc=0
+          shopt -s nullglob
+          [ -d networks ] || { echo "no networks/ yet — ok"; exit 0; }
+          # A record is a directory that holds files, at networks/<name>/ or at networks/<cluster>/<name>/.
+          records=()
+          for d in networks/*/; do
+            if [ -n "$(find "$d" -maxdepth 1 -type f -print -quit)" ]; then
+              records+=("$d")
+            else
+              for s in "$d"*/; do
+                if [ -n "$(find "$s" -maxdepth 1 -type f -print -quit)" ]; then records+=("$s"); fi
+              done
+            fi
+          done
+          for d in "${records[@]}"; do
+            echo "── ${d#networks/} ──"
+            # required public files
+            for f in config.yaml genesis.json genesis.ssz pubkeys.txt metadata.yaml README.md run-node.sh SHA256SUMS; do
+              [ -f "$d$f" ] || { echo "  MISSING $f"; rc=1; }
+            done
+            # run-node.sh is run straight from a clone, so the exec bit is part of the record
+            [ -x "$d/run-node.sh" ] || { echo "  run-node.sh not executable"; rc=1; }
+            # forbidden: no secret-bearing FILE may ever appear
+            if find "$d" -type f \( -iname '*keystore*' -o -iname 'jwt*' -o -iname '*secret*' -o -name 'key' -o -iname '*.key' -o -iname 'mnemonic*' \) | grep -q .; then
+              echo "  FORBIDDEN secret-like file present"; rc=1
+            fi
+            # forbidden: no mnemonic VALUE (a 24-word lowercase phrase, or a mnemonic: yaml key)
+            if grep -rIlE '([a-z]+ ){23}[a-z]+' "$d" >/dev/null 2>&1; then
+              echo "  SECRET: a 24-word (mnemonic-like) phrase is committed"; rc=1
+            fi
+            if grep -rIlE '^\s*-?\s*mnemonic:\s*["'"'"']?[a-z]' "$d" >/dev/null 2>&1; then
+              echo "  SECRET: a 'mnemonic:' value is committed"; rc=1
+            fi
+            # metadata.yaml must name the chain
+            grep -qE '^chainId: [1-9][0-9]*$' "$d/metadata.yaml" 2>/dev/null || { echo "  metadata.yaml missing a 'chainId: <n>' line"; rc=1; }
+            # checksums must verify, and pubkeys.txt must have 64 entries
+            ( cd "$d" && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1 ) || { echo "  CHECKSUM mismatch"; rc=1; }
+            n=$(grep -c . "$d/pubkeys.txt" 2>/dev/null || echo 0)
+            [ "$n" = 64 ] || { echo "  pubkeys.txt has $n entries (expected 64)"; rc=1; }
+          done
+          [ "$rc" = 0 ] && echo "OK — all ${#records[@]} networks well-formed, checksummed, no secrets"
+          exit $rc
+      - name: the README network list matches the tree
+        run: bin/network-list --check

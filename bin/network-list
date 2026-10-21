@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Render the network list of the root README from the records under networks/.
+
+The list is the table between the two marker comments in README.md. The deployment tooling regenerates it in
+every commit it makes; this script renders the same table so that a hand-made change to the tree can
+keep the list true, and so that CI can tell when it is not.
+
+    bin/network-list           print the list
+    bin/network-list --check   exit 1 when README.md's list differs from the tree
+    bin/network-list --write   replace README.md's list with the rendered one
+
+A record is a directory under networks/ that holds at least one file, either networks/<name>/ or
+networks/<cluster>/<name>/. A record whose metadata.yaml is missing or unreadable is listed with what
+its path says alone.
+"""
+import json
+import os
+import sys
+
+BEGIN = "<!-- networks:begin -->"
+END = "<!-- networks:end -->"
+HEADER = "| Network | Cluster | Chain ID | Public RPC | Description |\n| --- | --- | --- | --- | --- |\n"
+
+
+def holds_record(path):
+    try:
+        return any(not e.is_dir(follow_symlinks=False) for e in os.scandir(path))
+    except OSError:
+        return False
+
+
+def metadata(path):
+    """The chain id, public RPC endpoint and description of a record's metadata.yaml, read the way
+    the deployment tooling reads it: one top-level `key: value` per line, chainId required, description
+    optionally quoted. Returns empty values when the file is missing or chainId is not a number."""
+    chain_id, rpc, description = "", "", ""
+    try:
+        with open(os.path.join(path, "metadata.yaml"), encoding="utf-8") as f:
+            lines = f.read().split("\n")
+    except OSError:
+        return "", "", ""
+    for line in lines:
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        k, v = k.strip(), v.strip()
+        if k == "chainId":
+            if not v.isdigit() or int(v) == 0:
+                return "", "", ""
+            chain_id = v
+        elif k == "rpc":
+            rpc = v
+        elif k == "description":
+            if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+                try:
+                    v = json.loads(v)
+                except ValueError:
+                    pass
+            description = v
+    if chain_id == "":
+        return "", "", ""
+    return chain_id, rpc, description
+
+
+def records(root):
+    out = []
+    top = os.path.join(root, "networks")
+    try:
+        entries = sorted(os.scandir(top), key=lambda e: e.name)
+    except OSError:
+        return out
+    for e in entries:
+        if not e.is_dir(follow_symlinks=False):
+            continue
+        d = "networks/" + e.name
+        if holds_record(os.path.join(root, d)):
+            out.append((e.name, "", d))
+            continue
+        for sub in sorted(os.scandir(os.path.join(root, d)), key=lambda s: s.name):
+            if sub.is_dir(follow_symlinks=False) and holds_record(os.path.join(root, d, sub.name)):
+                out.append((sub.name, e.name, d + "/" + sub.name))
+    # A record without a cluster sorts after every cluster's.
+    out.sort(key=lambda r: (r[1] == "", r[1], r[0]))
+    return out
+
+
+def cell(s):
+    return s.replace("|", "\\|") if s else "—"
+
+
+def render(root):
+    rows = []
+    for name, cluster, d in records(root):
+        chain_id, rpc, description = metadata(os.path.join(root, d))
+        rows.append("| [%s](%s/) | %s | %s | %s | %s |\n" % (name, d, cell(cluster), cell(chain_id), cell(rpc), cell(description)))
+    return BEGIN + "\n" + HEADER + "".join(rows) + END + "\n"
+
+
+def with_list(readme, lst):
+    begin, end = readme.find(BEGIN), readme.find(END)
+    if begin < 0 or end < begin:
+        return None
+    tail = readme[end + len(END):]
+    if tail.startswith("\n"):
+        tail = tail[1:]
+    return readme[:begin] + lst + tail
+
+
+def main():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    lst = render(root)
+    mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    if mode == "":
+        sys.stdout.write(lst)
+        return 0
+    readme_path = os.path.join(root, "README.md")
+    try:
+        with open(readme_path, encoding="utf-8") as f:
+            readme = f.read()
+    except OSError:
+        readme = ""
+    updated = with_list(readme, lst)
+    if updated is None:
+        print("README.md has no network list: it needs the markers %s and %s" % (BEGIN, END), file=sys.stderr)
+        return 1
+    if mode == "--check":
+        if updated != readme:
+            print("README.md's network list differs from the tree; run bin/network-list --write", file=sys.stderr)
+            return 1
+        print("README.md's network list matches the tree")
+        return 0
+    if mode == "--write":
+        if updated != readme:
+            with open(readme_path, "w", encoding="utf-8") as f:
+                f.write(updated)
+        return 0
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

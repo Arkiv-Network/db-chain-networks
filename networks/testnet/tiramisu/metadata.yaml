@@ -1,0 +1,5 @@
+name: tiramisu
+chainId: 7738577
+baseDomain: testnet.arkiv.network
+rpc: https://rpc.tiramisu.db-chain.testnet.arkiv.network
+description: "Public Arkiv testnet; metered RPC edge, indexer and faucet; the network external developers join"
