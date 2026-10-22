@@ -22,7 +22,7 @@ NETWORK=pie
 EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.5.1@sha256:73e9f5c5a6105b2c2603cbfa7081a2803cdb15f00328f9c6db0dd43556235a50
 CL_IMAGE=sigp/lighthouse:v8.2.1@sha256:9538f53d8e11766e3cb5de1889b292074f8e518e0dabe6df13d9054d504d1d62
 SNAPSHOTS_URL=https://testnet.snapshots.arkiv.network
-BOOT_IMAGE=alpine:3.22
+BOOT_IMAGE=alpine:3.22.7@sha256:e9f2de928efcc1b53d0948e684b4f490315f280de6044844ec0ff26c0b44d3cf
 
 # This user's state directory for the chain: it holds the JWT the two clients share, which is a local
 # secret and so is never kept in this directory, the chain's public record.
@@ -323,7 +323,7 @@ fetch_range(){
   n=$((to - from + 1))
   for try in 1 2 3 4 5 6; do
     if curl -fsS -r "$from-$to" --connect-timeout 30 --speed-limit "$floor" --speed-time 60 -o "$out" "$url" &&
-      [ "$(stat -c %s "$out")" -eq "$n" ]; then
+      [ "$(wc -c <"$out" | tr -d ' ')" -eq "$n" ]; then
       return 0
     fi
     rm -f "$out"
@@ -438,8 +438,10 @@ restore_layer(){
   fi
   # The archive records the datadir's root as root-owned with the client's group, which a bare container
   # has no membership of: the root takes the ownership of what it holds, so the client can write in it.
+  # ls -nd prints an entry's numeric owner and group as its third and fourth columns.
   first=$(find "$dir" -mindepth 1 -maxdepth 1 -print -quit)
-  chown "$(stat -c %u:%g "$first")" "$dir"
+  # shellcheck disable=SC2012
+  chown "$(ls -nd "$first" | awk '{print $3 ":" $4}')" "$dir"
   say "$layer: verified $have_bytes bytes in $(($(date +%s) - started)) s"
 }
 
@@ -481,7 +483,7 @@ bootstrap_container(){
   docker run "${args[@]}" \
     -e NETWORK -e SNAPSHOTS_URL -e SNAPSHOTS_PRIVATE -e EL_IMAGE -e CL_IMAGE -e BOOTSTRAP -e SNAPSHOT_DIR \
     -e DOCKER_ROOT -e CHUNK_BYTES -e RETRY_BACKOFF -e MIN_RATE \
-    "$BOOT_IMAGE" sh -c 'apk add --no-cache bash curl jq zstd >/dev/null 2>&1 && exec bash -c "$BOOTSTRAP"'
+    "$BOOT_IMAGE" sh -c 'apk add --no-cache --upgrade ca-certificates ca-certificates-bundle bash curl jq zstd >/dev/null 2>&1 && exec bash -c "$BOOTSTRAP"'
 }
 
 # docker_disk — sets DOCKER_ROOT to docker's data root, where the datadirs' volumes live, and says so
