@@ -20,7 +20,7 @@ cd "$(dirname "$0")"
 
 NETWORK=tiramisu
 EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.2.0@sha256:37503f9434a84e419a9f0271bd2e7b9c48a22d8435837570f62a6d699819972c
-CL_IMAGE=sigp/lighthouse:v8.2.1@sha256:9538f53d8e11766e3cb5de1889b292074f8e518e0dabe6df13d9054d504d1d62
+CL_IMAGE=sigp/lighthouse:v8.3.1@sha256:05b5068268ea3fbd64389309d1d7c15b8f18a53f28d0886f098316302f4cdb41
 SNAPSHOTS_URL=https://testnet.snapshots.arkiv.network
 BOOT_IMAGE=alpine:3.22.7@sha256:e9f2de928efcc1b53d0948e684b4f490315f280de6044844ec0ff26c0b44d3cf
 
