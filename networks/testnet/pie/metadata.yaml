@@ -2,4 +2,4 @@ name: pie
 chainId: 7713079
 baseDomain: testnet.arkiv.network
 rpc: https://watcher-1-el.pie.db-chain.testnet.arkiv.network
-description: "Small testnet with one watcher and no metered edge; indexer and faucet only"
+description: "Small testnet with one watcher and no metered edge; indexer and faucet only."
