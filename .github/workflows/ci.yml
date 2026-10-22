@@ -22,16 +22,17 @@ jobs:
           rc=0
           shopt -s nullglob
           [ -d networks ] || { echo "no networks/ yet — ok"; exit 0; }
-          # A record is a directory that holds files, at networks/<name>/ or at networks/<cluster>/<name>/.
+          # A record is a directory at networks/<cluster>/<name>/. networks/ holds only cluster
+          # directories, and a cluster directory holds only record directories.
           records=()
-          for d in networks/*/; do
-            if [ -n "$(find "$d" -maxdepth 1 -type f -print -quit)" ]; then
-              records+=("$d")
-            else
-              for s in "$d"*/; do
-                if [ -n "$(find "$s" -maxdepth 1 -type f -print -quit)" ]; then records+=("$s"); fi
-              done
-            fi
+          for f in networks/* networks/.[!.]*; do
+            [ -d "$f" ] || { echo "── ${f#networks/} ──"; echo "  STRAY file directly under networks/: records live at networks/<cluster>/<name>/"; rc=1; }
+          done
+          for c in networks/*/; do
+            for f in "$c"* "$c".[!.]*; do
+              [ -d "$f" ] || { echo "── ${f#networks/} ──"; echo "  STRAY file directly under ${c#networks/}: records live at networks/<cluster>/<name>/"; rc=1; }
+            done
+            for d in "$c"*/; do records+=("$d"); done
           done
           for d in "${records[@]}"; do
             echo "── ${d#networks/} ──"

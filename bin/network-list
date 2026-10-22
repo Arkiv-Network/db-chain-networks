@@ -9,9 +9,8 @@ keep the list true, and so that CI can tell when it is not.
     bin/network-list --check   exit 1 when README.md's list differs from the tree
     bin/network-list --write   replace README.md's list with the rendered one
 
-A record is a directory under networks/ that holds at least one file, either networks/<name>/ or
-networks/<cluster>/<name>/. A record whose metadata.yaml is missing or unreadable is listed with what
-its path says alone.
+A record is a directory at networks/<cluster>/<name>/ that holds at least one file. A record whose
+metadata.yaml is missing or unreadable is listed with what its path says alone.
 """
 import json
 import os
@@ -73,14 +72,10 @@ def records(root):
         if not e.is_dir(follow_symlinks=False):
             continue
         d = "networks/" + e.name
-        if holds_record(os.path.join(root, d)):
-            out.append((e.name, "", d))
-            continue
         for sub in sorted(os.scandir(os.path.join(root, d)), key=lambda s: s.name):
             if sub.is_dir(follow_symlinks=False) and holds_record(os.path.join(root, d, sub.name)):
                 out.append((sub.name, e.name, d + "/" + sub.name))
-    # A record without a cluster sorts after every cluster's.
-    out.sort(key=lambda r: (r[1] == "", r[1], r[0]))
+    out.sort(key=lambda r: (r[1], r[0]))
     return out
 
 
