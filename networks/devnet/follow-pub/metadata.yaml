@@ -1,5 +1,0 @@
-name: follow-pub
-chainId: 7735741
-baseDomain: devnet.gobas.me
-rpc: https://watcher-1-el.follow-pub.db-chain.devnet.gobas.me
-description: "throwaway follower-restore test"
