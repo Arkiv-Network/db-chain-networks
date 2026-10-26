@@ -587,6 +587,8 @@ docker run -d --name "$NETWORK-el" --network "$NETWORK-net" \
 
 # The consensus layer, driving the execution layer over the engine API. Its HTTP API is bound to
 # loopback too: the sync state lives there, and it is the first thing to read when a node looks stuck.
+# With optimistic finalized sync off, it hands every finalized block to the execution layer for
+# verification while it syncs, which lets the execution layer catch up after a long stop.
 docker run -d --name "$NETWORK-cl" --network "$NETWORK-net" \
   -v "$PWD:/gen" -v "$JWT_FILE:/jwtsecret:ro" -v "$NETWORK-cl-data:/data" -p 127.0.0.1:5052:5052 \
   "$CL_IMAGE" \
@@ -594,7 +596,7 @@ docker run -d --name "$NETWORK-cl" --network "$NETWORK-net" \
     --execution-endpoint "http://$NETWORK-el:8551" --execution-jwt /jwtsecret \
     --http --http-address 0.0.0.0 \
     --boot-nodes "$CL_ENRS" \
-    --allow-insecure-genesis-sync --ignore-ws-check
+    --allow-insecure-genesis-sync --ignore-ws-check --disable-optimistic-finalized-sync
 
 # A container that refuses its arguments is gone within a second or two, so the run is confirmed before
 # it is called a success: a "started" line printed over a dead container is worse than no line at all.
