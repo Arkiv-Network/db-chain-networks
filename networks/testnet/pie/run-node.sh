@@ -15,7 +15,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 NETWORK=pie
-EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.5.1@sha256:73e9f5c5a6105b2c2603cbfa7081a2803cdb15f00328f9c6db0dd43556235a50
+EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.5.1-ca.1@sha256:84588e3fb66a33d858379bf2e986db18858c1e7c7ef1a1049196c58e8a688ecf
 CL_IMAGE=sigp/lighthouse:v8.3.1@sha256:05b5068268ea3fbd64389309d1d7c15b8f18a53f28d0886f098316302f4cdb41
 
 # This user's state directory for the chain: it holds the JWT the two clients share, which is a local
