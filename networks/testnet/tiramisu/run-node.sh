@@ -576,8 +576,13 @@ docker network inspect "$NETWORK-net" >/dev/null 2>&1 || docker network create "
 # joiner typically sits behind NAT, so any address discovery would advertise is one the network
 # cannot dial back — the watchers would burn their outbound attempts on it. The default discovery
 # bootnodes also belong to public Ethereum, whose nodes have nothing to offer this chain.
+#
+# ARKIV_STORE_PATH names the directory of the Arkiv store, which runs inside the node and refuses to
+# start without it. The store sits in the datadir volume beside reth's own database, so it survives a
+# re-run and is part of every snapshot of /data.
 docker run -d --name "$NETWORK-el" --network "$NETWORK-net" \
   -v "$PWD:/gen" -v "$JWT_FILE:/jwtsecret:ro" -v "$NETWORK-el-data:/data" -p 127.0.0.1:8545:8545 \
+  -e ARKIV_STORE_PATH=/data/golemdb \
   "$EL_IMAGE" \
   node --chain /gen/genesis.json --datadir /data \
     --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /jwtsecret \
