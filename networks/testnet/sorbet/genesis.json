@@ -1,0 +1,45 @@
+{
+  "alloc": {},
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "config": {
+    "berlinBlock": 0,
+    "blobSchedule": {
+      "cancun": {
+        "baseFeeUpdateFraction": 3338477,
+        "max": 6,
+        "target": 3
+      },
+      "prague": {
+        "baseFeeUpdateFraction": 5007716,
+        "max": 9,
+        "target": 6
+      }
+    },
+    "byzantiumBlock": 0,
+    "cancunTime": 0,
+    "chainId": 7706815,
+    "constantinopleBlock": 0,
+    "daoForkSupport": false,
+    "depositContractAddress": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "homesteadBlock": 0,
+    "istanbulBlock": 0,
+    "londonBlock": 0,
+    "mergeNetsplitBlock": 0,
+    "petersburgBlock": 0,
+    "pragueTime": 0,
+    "shanghaiTime": 0,
+    "terminalTotalDifficulty": 0,
+    "terminalTotalDifficultyPassed": true
+  },
+  "difficulty": "0x0",
+  "extraData": "0x",
+  "gasLimit": "0x3938700",
+  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "nonce": "0x1234",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "stateHash": "0xd967460cee261d131364bef5f98fa501fe6c06640c3cb27f22b0df63283309ad",
+  "timestamp": "0x6ae128e7"
+}

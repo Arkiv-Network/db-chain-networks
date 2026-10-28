@@ -1,0 +1,7 @@
+name: sorbet
+chainId: 7706815
+baseDomain: testnet.arkiv.network
+rpc: https://rpc.sorbet.db-chain.testnet.arkiv.network
+description: "Testnet prefilled with the Sourcify contract dataset; metered RPC edge and indexer; used for index rewrite and load work"
+prefill: true
+rethVersion: v0.1.0-prefill.1-ca.1@sha256:258ba0b9297cfd24d0e73a9c7957cb0c001021a2e780ada435d74a3a0d56208b
