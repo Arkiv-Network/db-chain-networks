@@ -1,5 +1,0 @@
-name: rabdi
-chainId: 7794095
-baseDomain: testnet.arkiv.network
-rpc: https://rpc.rabdi.db-chain.testnet.arkiv.network
-description: "Public testnet on the GolemDB node; indexer, metered RPC edge and faucet"
