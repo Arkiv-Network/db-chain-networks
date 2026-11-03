@@ -16,6 +16,7 @@ when the table and the tree disagree.
 <!-- networks:begin -->
 | Network | Cluster | Chain ID | Public RPC | Description |
 | --- | --- | --- | --- | --- |
+| [malpua](networks/testnet/malpua/) | testnet | 7793353 | https://rpc.malpua.db-chain.testnet.arkiv.network | Hackathon alternative chain with block gas limit experiments |
 | [rabdi](networks/testnet/rabdi/) | testnet | 7794095 | https://rpc.rabdi.db-chain.testnet.arkiv.network | Public testnet on the GolemDB node; indexer, metered RPC edge and faucet |
 | [sorbet](networks/testnet/sorbet/) | testnet | 7706815 | https://rpc.sorbet.db-chain.testnet.arkiv.network | Testnet prefilled with the Sourcify contract dataset; metered RPC edge and indexer; used for index rewrite and load work |
 | [tiramisu](networks/testnet/tiramisu/) | testnet | 7738577 | https://rpc.tiramisu.db-chain.testnet.arkiv.network | Public Arkiv testnet; metered RPC edge, indexer and faucet; the network external developers join |

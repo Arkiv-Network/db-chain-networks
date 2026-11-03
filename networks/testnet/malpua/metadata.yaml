@@ -1,0 +1,5 @@
+name: malpua
+chainId: 7793353
+baseDomain: testnet.arkiv.network
+rpc: https://rpc.malpua.db-chain.testnet.arkiv.network
+description: "Hackathon alternative chain with block gas limit experiments"
