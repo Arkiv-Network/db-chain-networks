@@ -22,6 +22,19 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Styles for the script's output: escape sequences when its output, on both stdout and stderr, goes to a
+# terminal that takes them and NO_COLOR is unset or empty, and empty otherwise, so output piped or
+# redirected to a file stays plain.
+bold='' dim='' cyan='' green='' red='' reset=''
+if [ -t 1 ] && [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
+  bold=$(printf '\033[1m')
+  dim=$(printf '\033[2m')
+  cyan=$(printf '\033[36m')
+  green=$(printf '\033[32m')
+  red=$(printf '\033[31m')
+  reset=$(printf '\033[0m')
+fi
+
 NETWORK=malpua
 EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v1.0.1@sha256:7c2097941c5456cb6a015de071deeb7909cb02eccb4483f9d7ff7140295e3f0b
 CL_IMAGE=sigp/lighthouse:v8.3.1@sha256:05b5068268ea3fbd64389309d1d7c15b8f18a53f28d0886f098316302f4cdb41
@@ -35,8 +48,8 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/db-chain-networks/$NETWORK"
 
 usage(){
   cat <<EOF
-Usage: ./run-node.sh
-       ./run-node.sh --teardown
+${bold}Usage:${reset} ${cyan}./run-node.sh${reset}
+       ${cyan}./run-node.sh --teardown${reset}
 
 Brings up a node that follows the $NETWORK chain: an Arkiv execution client and a Lighthouse beacon
 node, both in docker, with a companion container that keeps the beacon node holding the watchers
@@ -52,18 +65,20 @@ With both datadirs empty — a first run, or one after removing them — the scr
 published snapshot before starting the clients, so the node begins near the head. FROM_GENESIS=1 skips
 that and syncs from genesis instead.
 
-What the script creates, all of which --teardown removes:
+${bold}What the script creates, all of which --teardown removes:${reset}
   containers      $NETWORK-el, $NETWORK-cl, $NETWORK-cl-trust
   volumes         $NETWORK-el-data, $NETWORK-cl-data (the chain data: a later run restores or resyncs it)
   docker network  $NETWORK-net
   directory       $STATE_DIR (the JWT the two clients share)
 
---teardown leaves the images the script pulled, since other nodes on this host may run them:
+${bold}--teardown leaves the images the script pulled, since other nodes on this host may run them:${reset}
   $EL_IMAGE
   $CL_IMAGE
   $TRUST_IMAGE
   $BOOT_IMAGE
 'docker image rm' removes one once no container uses it.
+
+Output is coloured when it goes to a terminal; NO_COLOR=1 turns it off.
 EOF
 }
 
@@ -115,13 +130,13 @@ p2p_list(){
 }
 
 if [ ! -f p2p.yaml ]; then
-  echo "p2p.yaml is missing — this network is not currently publishing a public P2P endpoint; git pull and retry" >&2
+  echo "${red}p2p.yaml is missing — this network is not currently publishing a public P2P endpoint; git pull and retry${reset}" >&2
   exit 1
 fi
 EL_ENODES=$(p2p_list el_enodes)
 CL_ENRS=$(p2p_list cl_boot_enrs)
 if [ -z "$EL_ENODES" ] || [ -z "$CL_ENRS" ]; then
-  echo "p2p.yaml carries no endpoints on both layers — this network is not currently publishing a complete public P2P surface; git pull and retry" >&2
+  echo "${red}p2p.yaml carries no endpoints on both layers — this network is not currently publishing a complete public P2P surface; git pull and retry${reset}" >&2
   exit 1
 fi
 # The peer counts are printed so a joiner sees how many watchers carry it: with one per layer, a restart
@@ -145,8 +160,18 @@ mkdir -p "$STATE_DIR"
 # leaves this terminal's stdin free to answer the one question the step can ask.
 read -r -d '' BOOTSTRAP <<'INNER' || true
 set -euo pipefail
+
+# The styles of the host script, which sets RUN_NODE_COLOR when it styles its own output: escape
+# sequences then, and empty otherwise.
+dim='' green='' red='' reset=''
+if [ -n "${RUN_NODE_COLOR:-}" ]; then
+  dim=$(printf '\033[2m')
+  green=$(printf '\033[32m')
+  red=$(printf '\033[31m')
+  reset=$(printf '\033[0m')
+fi
 ts(){ date -u +%FT%TZ; }
-say(){ echo "$(ts) $*" >&2; }
+say(){ echo "${dim}$(ts)${reset} $*" >&2; }
 
 # Anything that goes wrong leaves both datadirs empty, so a re-run starts clean instead of resuming
 # onto half a chain.
@@ -155,7 +180,7 @@ wipe(){
 }
 cleanup(){
   if [ "$1" -ne 0 ] && { [ -n "$(ls -A /el)" ] || [ -n "$(ls -A /cl)" ]; }; then
-    say "bootstrap failed — emptying both datadirs so a re-run starts clean"
+    say "${red}bootstrap failed — emptying both datadirs so a re-run starts clean${reset}"
     wipe /el /cl
   fi
 }
@@ -166,7 +191,7 @@ trap 'cleanup $?' EXIT
 use_initial(){
   local out=$1
   cp /gen/initial-snapshot.json "$out"
-  [ "$(jq -r '.private // false' "$out")" != true ] || { say "initial snapshot is private; pre-download it with authentication and set SNAPSHOT_DIR"; exit 1; }
+  [ "$(jq -r '.private // false' "$out")" != true ] || { say "${red}initial snapshot is private; pre-download it with authentication and set SNAPSHOT_DIR${reset}"; exit 1; }
   SNAPSHOTS_URL=$(jq -er '.snapshotBaseUrl | select(startswith("https://"))' "$out")
   say "restoring from initial-snapshot.json: $2"
 }
@@ -189,14 +214,14 @@ fetch_manifest(){
     return 0
   fi
   if [ "${SNAPSHOTS_PRIVATE:-false}" = true ]; then
-    say "private snapshots require an authenticated pre-download and SNAPSHOT_DIR"
+    say "${red}private snapshots require an authenticated pre-download and SNAPSHOT_DIR${reset}"
     exit 1
   fi
   if [ -z "${SNAPSHOTS_URL:-}" ] && [ -s /gen/initial-snapshot.json ]; then
     use_initial "$out" "SNAPSHOTS_URL is unset"
     return
   fi
-  code=$(curl -sS -o "$out" -w '%{http_code}' "$SNAPSHOTS_URL/$NETWORK/latest.json") || { say "cannot reach $SNAPSHOTS_URL"; exit 1; }
+  code=$(curl -sS -o "$out" -w '%{http_code}' "$SNAPSHOTS_URL/$NETWORK/latest.json") || { say "${red}cannot reach $SNAPSHOTS_URL${reset}"; exit 1; }
   if { [ "$code" = 404 ] || { [ "$code" = 200 ] && jq -e '.wiped' "$out" >/dev/null 2>&1; }; } && [ -s /gen/initial-snapshot.json ]; then
     use_initial "$out" "latest.json is $([ "$code" = 404 ] && echo "404" || echo "a tombstone (wiped $(jq -r '.wiped' "$out"))")"
     return
@@ -220,7 +245,7 @@ fetch_manifest(){
       say "$NETWORK was wiped at $(jq -r '.wiped' "$out") and has not published a snapshot since — retry later, or sync from genesis";;
     404)
       say "no snapshot is published for $NETWORK at $SNAPSHOTS_URL — the sync would run from genesis";;
-    *)   say "GET $SNAPSHOTS_URL/$NETWORK/latest.json: HTTP $code"; exit 1;;
+    *)   say "${red}GET $SNAPSHOTS_URL/$NETWORK/latest.json: HTTP $code${reset}"; exit 1;;
   esac
   genesis_or_stop
 }
@@ -236,7 +261,7 @@ genesis_or_stop(){
       *)   exit 1;;
     esac
   fi
-  say "run this script with FROM_GENESIS=1 to sync from genesis"
+  say "${red}run this script with FROM_GENESIS=1 to sync from genesis${reset}"
   exit 1
 }
 
@@ -259,17 +284,17 @@ manifest_check(){
   want=$(jq -r .config.chainId "$genesis")
   have=$(jq -r .chainId "$manifest")
   if [ "$want" != "$have" ]; then
-    say "the snapshot is of chain $have and this record is chain $want — refusing to restore it"
+    say "${red}the snapshot is of chain $have and this record is chain $want — refusing to restore it${reset}"
     exit 1
   fi
   if [ "$(jq -r '.kind // empty' "$manifest")" = genesis ]; then
-    jq -e '.head.slot == 0 and .head.block == 0 and .layers.el != null and .layers.cl == null' "$manifest" >/dev/null || { say "invalid genesis snapshot"; exit 1; }
+    jq -e '.head.slot == 0 and .head.block == 0 and .layers.el != null and .layers.cl == null' "$manifest" >/dev/null || { say "${red}invalid genesis snapshot${reset}"; exit 1; }
     want=$(sha256sum "$genesis" | cut -d' ' -f1)
     have=$(jq -r '.genesis.genesisSha256' "$manifest")
-    [ "$want" = "$have" ] || { say "genesis snapshot execution genesis checksum mismatch"; exit 1; }
+    [ "$want" = "$have" ] || { say "${red}genesis snapshot execution genesis checksum mismatch${reset}"; exit 1; }
     want=$(jq -er .stateHash "$genesis")
     have=$(jq -r '.genesis.stateRoot' "$manifest")
-    [ "$want" = "$have" ] || { say "genesis snapshot state root mismatch"; exit 1; }
+    [ "$want" = "$have" ] || { say "${red}genesis snapshot state root mismatch${reset}"; exit 1; }
     # Generation zero has no consensus history: a restored/wiped network can restamp
     # its beacon clock while retaining the verified execution genesis identity.
     return
@@ -279,7 +304,7 @@ manifest_check(){
     want=$(sed -n "s/^MIN_GENESIS_TIME:[[:space:]]*//p" "$(dirname "$genesis")/config.yaml" | tr -d "\"' \r") \
       || want=""
     if [ "$want" != "$have" ]; then
-      say "$NETWORK was wiped since this snapshot was taken (snapshot genesis $have, this chain's genesis ${want:-unknown}); it is obsolete — use $SNAPSHOTS_URL/$NETWORK/latest.json"
+      say "${red}$NETWORK was wiped since this snapshot was taken (snapshot genesis $have, this chain's genesis ${want:-unknown}); it is obsolete — use $SNAPSHOTS_URL/$NETWORK/latest.json${reset}"
       exit 1
     fi
   fi
@@ -305,7 +330,7 @@ space_check(){
   where=${DOCKER_ROOT:+the disk holding the docker data root, $DOCKER_ROOT}
   say "$((gz/1024/1024/1024)) GiB to fetch, $((raw/1024/1024/1024)) GiB unpacked, $((avail/1024/1024/1024)) GiB free on ${where:-the filesystem holding $dir}"
   if [ "$avail" -lt "$need" ]; then
-    say "not enough free space: the restore needs $((need/1024/1024/1024)) GiB with headroom"
+    say "${red}not enough free space: the restore needs $((need/1024/1024/1024)) GiB with headroom${reset}"
     exit 1
   fi
 }
@@ -414,13 +439,13 @@ restore_layer(){
   compression=$(jq -r ".layers.$layer.compression" "$manifest")
   case "$compression" in
     gzip|zstd) ;;
-    *) say "$layer: unsupported snapshot compression: $compression"; exit 1 ;;
+    *) say "${red}$layer: unsupported snapshot compression: $compression${reset}"; exit 1 ;;
   esac
   rm -f "/tmp/$layer.sha" "/tmp/$layer.bytes"
   started=$(date +%s)
   if [ -n "${SNAPSHOT_DIR:-}" ]; then
     file=/snapshot/${key##*/}
-    [ -r "$file" ] || { say "$layer: $file is missing from the snapshot directory"; exit 1; }
+    [ -r "$file" ] || { say "${red}$layer: $file is missing from the snapshot directory${reset}"; exit 1; }
     say "$layer: reading $file"
   else
     say "$layer: fetching $key"
@@ -436,11 +461,11 @@ restore_layer(){
   have_sha=$(cat "/tmp/$layer.sha")
   have_bytes=$(cat "/tmp/$layer.bytes")
   if [ "$have_sha" != "$want_sha" ]; then
-    say "$layer: sha256 mismatch — $have_sha arrived, the manifest states $want_sha"
+    say "${red}$layer: sha256 mismatch — $have_sha arrived, the manifest states $want_sha${reset}"
     exit 1
   fi
   if [ "$have_bytes" != "$want_bytes" ]; then
-    say "$layer: size mismatch — $have_bytes bytes arrived, the manifest states $want_bytes"
+    say "${red}$layer: size mismatch — $have_bytes bytes arrived, the manifest states $want_bytes${reset}"
     exit 1
   fi
   # The archive records the datadir's root as root-owned with the client's group, which a bare container
@@ -455,7 +480,7 @@ restore_layer(){
 fetch_manifest /tmp/latest.json
 manifest_check /gen/genesis.json /tmp/latest.json
 if [ "$(jq -r '.private // false' /tmp/latest.json)" = true ] && [ -z "${SNAPSHOT_DIR:-}" ]; then
-  say "private snapshot requires authenticated pre-download and SNAPSHOT_DIR"
+  say "${red}private snapshot requires authenticated pre-download and SNAPSHOT_DIR${reset}"
   exit 1
 fi
 run=$(jq -r .run /tmp/latest.json)
@@ -471,7 +496,7 @@ if [ "$(jq -r '.kind // empty' /tmp/latest.json)" = genesis ]; then
 else
   restore_layer cl /tmp/latest.json /cl
 fi
-say "restored $NETWORK at slot $slot, block $block, from snapshot $run — the node syncs forward from there"
+say "${green}restored $NETWORK at slot $slot, block $block, from snapshot $run — the node syncs forward from there${reset}"
 INNER
 
 # volume_empty <volume> — true when the named volume holds nothing. It is read through a container, so
@@ -489,7 +514,7 @@ bootstrap_container(){
   [ -z "${SNAPSHOT_DIR:-}" ] || args+=(-v "$SNAPSHOT_DIR:/snapshot:ro")
   docker run "${args[@]}" \
     -e NETWORK -e SNAPSHOTS_URL -e SNAPSHOTS_PRIVATE -e EL_IMAGE -e CL_IMAGE -e BOOTSTRAP -e SNAPSHOT_DIR \
-    -e DOCKER_ROOT -e CHUNK_BYTES -e RETRY_BACKOFF -e MIN_RATE \
+    -e DOCKER_ROOT -e CHUNK_BYTES -e RETRY_BACKOFF -e MIN_RATE -e RUN_NODE_COLOR \
     "$BOOT_IMAGE" sh -c 'apk add --no-cache --upgrade ca-certificates ca-certificates-bundle bash curl jq zstd >/dev/null 2>&1 && exec bash -c "$BOOTSTRAP"'
 }
 
@@ -508,8 +533,8 @@ docker_disk(){
     *"Docker Desktop"*) ;;
     *) [ ! -d "$DOCKER_ROOT" ] || return 0;;
   esac
-  echo "docker keeps its data at $DOCKER_ROOT on a disk other than this machine's ($os): the free space the restore checks is that disk's" >&2
-  echo "Docker Desktop caps that disk at the size set in its Resources settings and stores it on this machine's disk, which has $(df -kP "$HOME" | awk 'NR==2{print int($4/1048576)}') GiB free" >&2
+  echo "${dim}docker keeps its data at $DOCKER_ROOT on a disk other than this machine's ($os): the free space the restore checks is that disk's${reset}" >&2
+  echo "${dim}Docker Desktop caps that disk at the size set in its Resources settings and stores it on this machine's disk, which has $(df -kP "$HOME" | awk 'NR==2{print int($4/1048576)}') GiB free${reset}" >&2
 }
 
 # Both datadirs are filled together or not at all: one layer restored to a point of the chain the other
@@ -522,9 +547,9 @@ bootstrap_from_snapshot(){
   # is refused before anything is created.
   if [ -n "${SNAPSHOT_DIR:-}" ]; then
     given=$SNAPSHOT_DIR
-    SNAPSHOT_DIR=$(cd "$given" 2>/dev/null && pwd) || { echo "SNAPSHOT_DIR $given is not a directory" >&2; exit 1; }
+    SNAPSHOT_DIR=$(cd "$given" 2>/dev/null && pwd) || { echo "${red}SNAPSHOT_DIR $given is not a directory${reset}" >&2; exit 1; }
     if [ ! -f "$SNAPSHOT_DIR/latest.json" ] && [ ! -f "$SNAPSHOT_DIR/manifest.json" ]; then
-      echo "SNAPSHOT_DIR holds neither $SNAPSHOT_DIR/latest.json nor $SNAPSHOT_DIR/manifest.json" >&2
+      echo "${red}SNAPSHOT_DIR holds neither $SNAPSHOT_DIR/latest.json nor $SNAPSHOT_DIR/manifest.json${reset}" >&2
       exit 1
     fi
   fi
@@ -536,8 +561,8 @@ bootstrap_from_snapshot(){
     return 0
   fi
   if [ "$el_empty$cl_empty" != 11 ]; then
-    echo "one datadir holds chain data and the other is empty; a snapshot restores both layers at one point of the chain" >&2
-    echo "to bootstrap from the snapshot: docker volume rm $el_vol $cl_vol — then run this script again" >&2
+    echo "${red}one datadir holds chain data and the other is empty; a snapshot restores both layers at one point of the chain${reset}" >&2
+    echo "${red}to bootstrap from the snapshot: docker volume rm $el_vol $cl_vol — then run this script again${reset}" >&2
     exit 1
   fi
   if [ -n "${SNAPSHOT_DIR:-}" ]; then
@@ -548,8 +573,10 @@ bootstrap_from_snapshot(){
   docker_disk
   # Every variable the container reads has to be exported for docker to pass it along by name. The knobs
   # and the snapshot directory are named whether or not this run sets them: an unset name passes nothing,
-  # and the bootstrap falls back to its own defaults.
-  export NETWORK SNAPSHOTS_URL SNAPSHOTS_PRIVATE EL_IMAGE CL_IMAGE BOOTSTRAP SNAPSHOT_DIR DOCKER_ROOT CHUNK_BYTES RETRY_BACKOFF MIN_RATE
+  # and the bootstrap falls back to its own defaults. RUN_NODE_COLOR is set when this script styles its
+  # output, so the container's progress lines are styled to match.
+  RUN_NODE_COLOR=${reset:+1}
+  export NETWORK SNAPSHOTS_URL SNAPSHOTS_PRIVATE EL_IMAGE CL_IMAGE BOOTSTRAP SNAPSHOT_DIR DOCKER_ROOT CHUNK_BYTES RETRY_BACKOFF MIN_RATE RUN_NODE_COLOR
   # A terminal is given to the container only when there is one, so the question the step can ask is
   # answerable by hand and a run with none is not left waiting on a prompt nobody sees.
   if [ -t 0 ]; then
@@ -560,7 +587,7 @@ bootstrap_from_snapshot(){
 }
 
 if [ -s initial-snapshot.json ] && [ "${FROM_GENESIS:-}" = 1 ]; then
-  echo "this execution genesis requires seeded state; FROM_GENESIS cannot skip its snapshot" >&2
+  echo "${red}this execution genesis requires seeded state; FROM_GENESIS cannot skip its snapshot${reset}" >&2
   exit 1
 fi
 if [ -n "${SNAPSHOTS_URL:-}" ] && [ "${FROM_GENESIS:-}" != 1 ]; then
@@ -647,13 +674,13 @@ sleep 3
 down=0
 for container in "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-trust"; do
   if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ]; then
-    printf '%s is not running. Its last log lines:\n' "$container" >&2
+    echo "${red}$container is not running. Its last log lines:${reset}" >&2
     docker logs --tail 20 "$container" >&2 || true
     down=1
   fi
 done
 if [ "$down" = 1 ]; then
-  echo "the node did not come up — address the cause above and run this script again" >&2
+  echo "${red}the node did not come up — address the cause above and run this script again${reset}" >&2
   exit 1
 fi
 
@@ -663,20 +690,20 @@ docker update --restart unless-stopped "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-
 
 cat <<EOF
 
-Started $NETWORK-el, $NETWORK-cl and $NETWORK-cl-trust.
+${bold}${green}Started $NETWORK-el, $NETWORK-cl and $NETWORK-cl-trust.${reset}
 
 To verify, watch the execution layer establish a session with a published peer:
-  docker logs -f $NETWORK-el
+  ${cyan}docker logs -f $NETWORK-el${reset}
 read the beacon node's sync state:
-  curl -s http://localhost:5052/eth/v1/node/syncing
+  ${cyan}curl -s http://localhost:5052/eth/v1/node/syncing${reset}
 and watch the head climb to the chain's:
-  curl -s -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' http://localhost:8545
+  ${cyan}curl -s -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' http://localhost:8545${reset}
 
 To watch the companion register the watchers as trusted beacon peers:
-  docker logs -f $NETWORK-cl-trust
+  ${cyan}docker logs -f $NETWORK-cl-trust${reset}
 and read them among the beacon node's peers, each held at score "Max":
-  curl -s http://localhost:5052/lighthouse/peers
+  ${cyan}curl -s http://localhost:5052/lighthouse/peers${reset}
 
-To update, or to recover a peering that stopped holding: git pull, then run this script again.
-To remove everything this script created: ./run-node.sh --teardown
+To update, or to recover a peering that stopped holding: ${cyan}git pull${reset}, then run this script again.
+To remove everything this script created: ${cyan}./run-node.sh --teardown${reset}
 EOF
