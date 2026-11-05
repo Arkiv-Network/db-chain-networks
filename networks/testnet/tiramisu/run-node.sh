@@ -6,15 +6,14 @@
 # the operator side rewrites whenever the addresses this chain publishes move — so a node that loses its
 # peering is one 'git pull' and one re-run away from having it back.
 #
-# The node is three containers: the execution layer, the beacon node, and a companion that keeps the
-# beacon node holding the published watchers as trusted peers, so it re-dials them by itself whenever
-# a connection drops.
+# The node is two containers: the execution layer and the beacon node, which holds the published
+# watchers as trusted peers, so it re-dials them by itself whenever a connection drops.
 #
-# Re-running is also the update procedure. It replaces the containers and leaves their datadirs (named
+# Re-running is also the update procedure. It replaces both containers and leaves their datadirs (named
 # docker volumes) in place, so the node re-peers without resyncing.
 #
-# Once all three containers are seen running they are set to restart with docker, so the node comes
-# back after a host reboot. --teardown removes everything the script creates.
+# Once both containers are seen running they are set to restart with docker, so the node comes back
+# after a host reboot. --teardown removes everything the script creates.
 #
 # A run that finds both datadirs empty fills them from this chain's published snapshot first, so the
 # node starts near the head instead of syncing from genesis, which takes days. A node that already
@@ -38,7 +37,6 @@ fi
 NETWORK=tiramisu
 EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.2.0-ca.1@sha256:f2600d966e406c53cb5daca87cc7414e9b203b940af57d0c0a5ec33b8f20b55e
 CL_IMAGE=sigp/lighthouse:v8.3.1@sha256:05b5068268ea3fbd64389309d1d7c15b8f18a53f28d0886f098316302f4cdb41
-TRUST_IMAGE=curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
 SNAPSHOTS_URL=https://testnet.snapshots.arkiv.network
 BOOT_IMAGE=alpine:3.22.7@sha256:e9f2de928efcc1b53d0948e684b4f490315f280de6044844ec0ff26c0b44d3cf
 
@@ -52,21 +50,22 @@ ${bold}Usage:${reset} ${cyan}./run-node.sh${reset}
        ${cyan}./run-node.sh --teardown${reset}
 
 Brings up a node that follows the $NETWORK chain: an Arkiv execution client and a Lighthouse beacon
-node, both in docker, with a companion container that keeps the beacon node holding the watchers
-as trusted peers. Bringing it up takes no arguments: the connection details come from the
+node, both in docker. Bringing it up takes no arguments: the connection details come from the
 p2p.yaml beside this script, and everything else it needs is in this directory. The node peers with
 every watcher p2p.yaml publishes, on both layers, so one watcher restarting leaves it the others.
+The beacon node holds the watchers as trusted peers and re-dials them by itself whenever a
+connection drops.
 
-Re-running is the update procedure. It replaces the containers and keeps their datadirs, so the node
-re-peers without resyncing. Once they are running they are set to restart with docker, so the node
-comes back after a host reboot.
+Re-running is the update procedure. It replaces both containers and keeps their datadirs, so the
+node re-peers without resyncing. Once they are running they are set to restart with docker, so the
+node comes back after a host reboot.
 
-With both datadirs empty — a first run, or one after removing them — the script restores this chain's
-published snapshot before starting the clients, so the node begins near the head. FROM_GENESIS=1 skips
-that and syncs from genesis instead.
+With both datadirs empty — a first run, or one after removing them — the script restores this
+chain's published snapshot before starting the clients, so the node begins near the head.
+FROM_GENESIS=1 skips that and syncs from genesis instead.
 
 ${bold}What the script creates, all of which --teardown removes:${reset}
-  containers      $NETWORK-el, $NETWORK-cl, $NETWORK-cl-trust
+  containers      $NETWORK-el, $NETWORK-cl
   volumes         $NETWORK-el-data, $NETWORK-cl-data (the chain data: a later run restores or resyncs it)
   docker network  $NETWORK-net
   directory       $STATE_DIR (the JWT the two clients share)
@@ -74,7 +73,6 @@ ${bold}What the script creates, all of which --teardown removes:${reset}
 ${bold}--teardown leaves the images the script pulled, since other nodes on this host may run them:${reset}
   $EL_IMAGE
   $CL_IMAGE
-  $TRUST_IMAGE
   $BOOT_IMAGE
 'docker image rm' removes one once no container uses it.
 
@@ -82,12 +80,12 @@ Output is coloured when it goes to a terminal; NO_COLOR=1 turns it off.
 EOF
 }
 
-# teardown removes everything the script creates, and only that: the three containers, the datadir
+# teardown removes everything the script creates, and only that: the two containers, their datadir
 # volumes, the network they share and the state directory holding the JWT. Each is removed only if it
 # exists, so a teardown after a partial run, or a second teardown, finishes cleanly.
 teardown(){
   local c v
-  for c in "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-trust"; do
+  for c in "$NETWORK-el" "$NETWORK-cl"; do
     if docker container inspect "$c" >/dev/null 2>&1; then
       docker rm -f "$c" >/dev/null
       echo "removed container $c"
@@ -596,10 +594,10 @@ elif [ "${FROM_GENESIS:-}" != 1 ] && { [ "${SNAPSHOTS_PRIVATE:-false}" = true ] 
   bootstrap_from_snapshot
 fi
 
-# A re-run starts from a clean set of containers; the named volumes below carry the chain data across.
-docker rm -f "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-trust" >/dev/null 2>&1 || true
+# A re-run starts from a clean pair of containers; the named volumes below carry the chain data across.
+docker rm -f "$NETWORK-el" "$NETWORK-cl" >/dev/null 2>&1 || true
 
-# The containers share a private network, so the beacon node reaches the execution layer by name
+# The two containers share a private network, so the beacon node reaches the execution layer by name
 # whatever order they come up in. It outlives a run and is shared by every re-run.
 docker network inspect "$NETWORK-net" >/dev/null 2>&1 || docker network create "$NETWORK-net" >/dev/null
 
@@ -632,47 +630,42 @@ docker run -d --name "$NETWORK-el" --network "$NETWORK-net" \
 # Discovery stays off here too: the node peers with the published watchers alone, dialing their ENRs at
 # startup and re-dialing them as trusted peers afterwards, and an address discovery would advertise
 # from behind NAT is one the watchers cannot dial back.
-docker run -d --name "$NETWORK-cl" --network "$NETWORK-net" \
+#
+# The watchers are held as trusted peers through the beacon API, at every start of the beacon node:
+# lighthouse's --trusted-peers takes bare peer ids and dials nothing, while POST /lighthouse/add_peer
+# with an ENR pins the peer's score and re-dials it every heartbeat, and that set lives in the
+# process's memory. The container's command registers them before handing over to lighthouse, so the
+# registration comes with every start of the process, the restart after a host reboot included. It
+# speaks HTTP through bash's TCP redirection, since the image carries no HTTP client. --init runs an
+# init process as the container's first, which reaps the registration's subshell once lighthouse has
+# replaced the shell that started it.
+docker run -d --name "$NETWORK-cl" --init --network "$NETWORK-net" \
   -v "$PWD:/gen" -v "$JWT_FILE:/jwtsecret:ro" -v "$NETWORK-cl-data:/data" -p 127.0.0.1:5052:5052 \
+  -e CL_ENRS="$CL_ENRS" \
   "$CL_IMAGE" \
-  lighthouse beacon_node --testnet-dir /gen --datadir /data \
+  bash -c 'register(){
+  local enr body status
+  for enr in ${CL_ENRS//,/ }; do
+    body="{\"enr\":\"$enr\"}"
+    { exec 3<>/dev/tcp/127.0.0.1/5052; } 2>/dev/null || return 1
+    printf "POST /lighthouse/add_peer HTTP/1.1\r\nHost: 127.0.0.1:5052\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s" "${#body}" "$body" >&3
+    read -r -t 5 status <&3 || status=
+    exec 3>&-
+    case $status in *" 200 "*) ;; *) return 1;; esac
+  done
+}
+( until register; do sleep 5; done; echo "registered the watchers as trusted beacon peers" ) &
+exec lighthouse "$@"' bash beacon_node --testnet-dir /gen --datadir /data \
     --execution-endpoint "http://$NETWORK-el:8551" --execution-jwt /jwtsecret \
     --http --http-address 0.0.0.0 \
     --boot-nodes "$CL_ENRS" --disable-discovery \
     --allow-insecure-genesis-sync --ignore-ws-check --disable-optimistic-finalized-sync
 
-# The companion that keeps the watchers trusted by the beacon node. A trusted peer is never
-# score-disconnected, pruned or banned, and the beacon node re-dials it while it is disconnected, so a
-# lost peering returns by itself. The trusted set lives in the beacon node's memory and is gone after
-# any restart of it, including the one docker performs after a host reboot, so it is re-applied by a
-# container that restarts with the node. Lighthouse logs a line for every registration, so the loop
-# first counts the trusted peers and registers only when some are missing. The execution layer needs
-# no companion: the enodes it trusts carry their addresses, so reth re-dials them by itself.
-docker run -d --name "$NETWORK-cl-trust" --network "$NETWORK-net" \
-  -e NETWORK="$NETWORK" -e CL_ENRS="$CL_ENRS" \
-  "$TRUST_IMAGE" \
-  sh -c 'set -u
-api="http://$NETWORK-cl:5052"
-total=$(printf "%s\n" "$CL_ENRS" | tr "," "\n" | grep -c .)
-while :; do
-  peers=$(curl -sfm 5 "$api/lighthouse/peers") || { sleep 10; continue; }
-  held=$(printf "%s" "$peers" | grep -o "\"score\":\"Max\"" | wc -l | tr -d " ")
-  if [ "$held" -lt "$total" ]; then
-    ok=0
-    for enr in $(printf "%s" "$CL_ENRS" | tr "," " "); do
-      curl -sfm 5 -o /dev/null -X POST -H "Content-Type: application/json" \
-        --data "$(printf "{\"enr\":\"%s\"}" "$enr")" "$api/lighthouse/add_peer" && ok=$((ok + 1))
-    done
-    [ "$ok" -eq 0 ] || echo "registered $ok of $total watchers as trusted beacon peers"
-  fi
-  sleep 10
-done'
-
 # A container that refuses its arguments is gone within a second or two, so the run is confirmed before
 # it is called a success: a "started" line printed over a dead container is worse than no line at all.
 sleep 3
 down=0
-for container in "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-trust"; do
+for container in "$NETWORK-el" "$NETWORK-cl"; do
   if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ]; then
     echo "${red}$container is not running. Its last log lines:${reset}" >&2
     docker logs --tail 20 "$container" >&2 || true
@@ -686,11 +679,11 @@ fi
 
 # Containers that have been seen running are armed to come back with dockerd, so the node survives a
 # host reboot. Arming a container before it is checked would let one that crash-loops read as running.
-docker update --restart unless-stopped "$NETWORK-el" "$NETWORK-cl" "$NETWORK-cl-trust" >/dev/null
+docker update --restart unless-stopped "$NETWORK-el" "$NETWORK-cl" >/dev/null
 
 cat <<EOF
 
-${bold}${green}Started $NETWORK-el, $NETWORK-cl and $NETWORK-cl-trust.${reset}
+${bold}${green}Started $NETWORK-el and $NETWORK-cl.${reset}
 
 ${dim}To verify, watch the execution layer establish a session with a published peer:${reset}
   ${cyan}docker logs -f $NETWORK-el${reset}
@@ -698,10 +691,7 @@ ${dim}read the beacon node's sync state:${reset}
   ${cyan}curl -s http://localhost:5052/eth/v1/node/syncing${reset}
 ${dim}and watch the head climb to the chain's:${reset}
   ${cyan}curl -s -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' http://localhost:8545${reset}
-
-${dim}To watch the companion register the watchers as trusted beacon peers:${reset}
-  ${cyan}docker logs -f $NETWORK-cl-trust${reset}
-${dim}and read them among the beacon node's peers, each held at score "Max":${reset}
+${dim}and read the watchers among the beacon node's peers, each held as trusted at score "Max":${reset}
   ${cyan}curl -s http://localhost:5052/lighthouse/peers${reset}
 
 ${dim}To update, or to recover a peering that stopped holding: ${reset}${cyan}git pull${reset}${dim}, then run this script again.${reset}

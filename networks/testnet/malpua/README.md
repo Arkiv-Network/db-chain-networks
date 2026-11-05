@@ -34,10 +34,10 @@ Once it is up, the script prints how to check it: the beacon node's sync state a
 http://localhost:5052/eth/v1/node/syncing, and the execution layer's head at http://localhost:8545.
 Both are bound to loopback, so they answer on the host that runs them and nowhere else.
 
-A companion container keeps the watchers registered as trusted peers of the beacon node, which re-dials
-them whenever a connection drops, so a lost peering returns by itself. All three containers are set to
-restart with docker once they are seen running, so the node comes back after a host reboot, and a
-reboot or a beacon restart needs no re-run.
+The beacon node registers the watchers as its trusted peers at every start and re-dials them whenever a
+connection drops, so a lost peering returns by itself. Both containers are set to restart with docker
+once they are seen running, so the node comes back after a host reboot, and a reboot or a restart needs
+no re-run.
 
 ### The first sync starts from the published snapshot
 
@@ -106,8 +106,8 @@ re-peers without resyncing.
 
     ./run-node.sh --teardown
 
-removes everything the script created: the three containers, both datadir volumes (the chain data), the
-docker network they share, and the state directory holding the JWT. It leaves the images the script
+removes everything the script created: both containers, both datadir volumes (the chain data), the
+docker network the two share, and the state directory holding the JWT. It leaves the images the script
 pulled, which other nodes on the host may run; `./run-node.sh --help` lists them.
 
 Notes:
