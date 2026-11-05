@@ -692,18 +692,18 @@ cat <<EOF
 
 ${bold}${green}Started $NETWORK-el, $NETWORK-cl and $NETWORK-cl-trust.${reset}
 
-To verify, watch the execution layer establish a session with a published peer:
+${dim}To verify, watch the execution layer establish a session with a published peer:${reset}
   ${cyan}docker logs -f $NETWORK-el${reset}
-read the beacon node's sync state:
+${dim}read the beacon node's sync state:${reset}
   ${cyan}curl -s http://localhost:5052/eth/v1/node/syncing${reset}
-and watch the head climb to the chain's:
+${dim}and watch the head climb to the chain's:${reset}
   ${cyan}curl -s -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' http://localhost:8545${reset}
 
-To watch the companion register the watchers as trusted beacon peers:
+${dim}To watch the companion register the watchers as trusted beacon peers:${reset}
   ${cyan}docker logs -f $NETWORK-cl-trust${reset}
-and read them among the beacon node's peers, each held at score "Max":
+${dim}and read them among the beacon node's peers, each held at score "Max":${reset}
   ${cyan}curl -s http://localhost:5052/lighthouse/peers${reset}
 
-To update, or to recover a peering that stopped holding: ${cyan}git pull${reset}, then run this script again.
-To remove everything this script created: ${cyan}./run-node.sh --teardown${reset}
+${dim}To update, or to recover a peering that stopped holding: ${reset}${cyan}git pull${reset}${dim}, then run this script again.${reset}
+${dim}To remove everything this script created: ${reset}${cyan}./run-node.sh --teardown${reset}
 EOF
