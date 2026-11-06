@@ -27,6 +27,7 @@ clients authenticate to each other with — kept under your own state directory
 (`${XDG_STATE_HOME:-$HOME/.local/state}/db-chain-networks/`), never in this directory, which holds
 no secret — and starts them: the Arkiv execution client — reth hosting the Arkiv entity engine, which is
 part of the state transition, so stock reth cannot follow this chain — and a Lighthouse beacon node. The
+images it starts are listed in images.env, pinned by digest, and the script reads them from there. The
 node follows the chain read-only: it holds no keys, needs no funding, and proposes nothing, and every
 connection it opens is outbound, so it needs no inbound port of its own.
 

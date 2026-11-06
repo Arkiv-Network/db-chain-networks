@@ -35,10 +35,16 @@ if [ -t 1 ] && [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]
 fi
 
 NETWORK=sorbet
-EL_IMAGE=ghcr.io/arkiv-network/arkiv-reth:v0.1.0-prefill.1-ca.1@sha256:258ba0b9297cfd24d0e73a9c7957cb0c001021a2e780ada435d74a3a0d56208b
-CL_IMAGE=sigp/lighthouse:v8.3.1@sha256:05b5068268ea3fbd64389309d1d7c15b8f18a53f28d0886f098316302f4cdb41
+
+# The images the node runs come from images.env beside this script, so a tool reading this record and
+# this script name the same images.
+if [ ! -f images.env ]; then
+  echo "${red}images.env is missing — this record is incomplete; git pull and retry${reset}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. ./images.env
 SNAPSHOTS_URL=https://testnet.snapshots.arkiv.network
-BOOT_IMAGE=alpine:3.22.7@sha256:e9f2de928efcc1b53d0948e684b4f490315f280de6044844ec0ff26c0b44d3cf
 
 # This user's state directory for the chain: it holds the JWT the two clients share, which is a local
 # secret and so is never kept in this directory, the chain's public record.
