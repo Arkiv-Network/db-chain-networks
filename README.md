@@ -33,6 +33,7 @@ networks/<cluster>/<name>/
   boot_enr.yaml     # published consensus ENRs — the --testnet-dir boot list
   pubkeys.txt       # the 64 validator public keys
   metadata.yaml     # name, chain id, base domain, public RPC, description
+  images.env        # the images run-node.sh starts, pinned by digest; the script reads them from here
   run-node.sh       # executable — brings up a node that follows this chain
   README.md         # endpoints + how to follow this chain
   SHA256SUMS        # integrity
