@@ -636,9 +636,9 @@ docker run -d --name "$NETWORK-el" --network "$NETWORK-net" \
 # with an ENR pins the peer's score and re-dials it every heartbeat, and that set lives in the
 # process's memory. The container's command registers them before handing over to lighthouse, so the
 # registration comes with every start of the process, the restart after a host reboot included. It
-# speaks HTTP through bash's TCP redirection, since the image carries no HTTP client. --init runs an
-# init process as the container's first, which reaps the registration's subshell once lighthouse has
-# replaced the shell that started it.
+# speaks HTTP through bash's TCP redirection, since the image carries no HTTP client. The registration
+# loop is started from a subshell that exits at once, so it is orphaned to the init process --init
+# provides, which reaps it when it finishes.
 docker run -d --name "$NETWORK-cl" --init --network "$NETWORK-net" \
   -v "$PWD:/gen" -v "$JWT_FILE:/jwtsecret:ro" -v "$NETWORK-cl-data:/data" -p 127.0.0.1:5052:5052 \
   -e CL_ENRS="$CL_ENRS" \
@@ -654,7 +654,7 @@ docker run -d --name "$NETWORK-cl" --init --network "$NETWORK-net" \
     case $status in *" 200 "*) ;; *) return 1;; esac
   done
 }
-( until register; do sleep 5; done; echo "registered the watchers as trusted beacon peers" ) &
+( ( until register; do sleep 5; done; echo "registered the watchers as trusted beacon peers" ) & )
 exec lighthouse "$@"' bash beacon_node --testnet-dir /gen --datadir /data \
     --execution-endpoint "http://$NETWORK-el:8551" --execution-jwt /jwtsecret \
     --http --http-address 0.0.0.0 \
