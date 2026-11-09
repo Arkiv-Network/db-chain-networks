@@ -27,13 +27,18 @@ clients authenticate to each other with — kept under your own state directory
 (`${XDG_STATE_HOME:-$HOME/.local/state}/db-chain-networks/`), never in this directory, which holds
 no secret — and starts them: the Arkiv execution client — reth hosting the Arkiv entity engine, which is
 part of the state transition, so stock reth cannot follow this chain — and a Lighthouse beacon node. The
+images it starts are listed in images.env, pinned by digest, and the script reads them from there. The
 node follows the chain read-only: it holds no keys, needs no funding, and proposes nothing, and every
 connection it opens is outbound, so it needs no inbound port of its own.
 
 Once it is up, the script prints how to check it: the beacon node's sync state at
 http://localhost:5052/eth/v1/node/syncing, and the execution layer's head at http://localhost:8545.
-Both are bound to loopback, so they answer on the host that runs them and nowhere else. Both containers
-are set to restart with docker once they are seen running, so the node comes back after a host reboot.
+Both are bound to loopback, so they answer on the host that runs them and nowhere else.
+
+The beacon node registers the watchers as its trusted peers at every start and re-dials them whenever a
+connection drops, so a lost peering returns by itself. Both containers are set to restart with docker
+once they are seen running, so the node comes back after a host reboot, and a reboot or a restart needs
+no re-run.
 
 ### The first sync starts from the published snapshot
 
@@ -94,7 +99,7 @@ blocks of the one this chain's public RPC reports.
 ### When the connection details change
 
 p2p.yaml is rewritten whenever the addresses this chain publishes move, so a node that loses its peering
-is one `git pull` and one re-run of the script away from having it back. Re-running replaces both
+is one `git pull` and one re-run of the script away from having it back. Re-running replaces the
 containers and leaves their datadirs — named docker volumes — in place, so the node
 re-peers without resyncing.
 
