@@ -37,7 +37,7 @@ jobs:
           for d in "${records[@]}"; do
             echo "── ${d#networks/} ──"
             # required public files
-            for f in config.yaml genesis.json genesis.ssz pubkeys.txt metadata.yaml README.md run-node.sh SHA256SUMS; do
+            for f in config.yaml genesis.json genesis.ssz pubkeys.txt metadata.yaml README.md run-node.sh images.env SHA256SUMS; do
               [ -f "$d$f" ] || { echo "  MISSING $f"; rc=1; }
             done
             # run-node.sh is run straight from a clone, so the exec bit is part of the record
